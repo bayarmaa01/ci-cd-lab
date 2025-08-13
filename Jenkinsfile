@@ -7,7 +7,7 @@ pipeline {
         IMAGE_NAME     = 'ci-cd-lab'
         PROD_TAG       = "prod-${BUILD_NUMBER}"
         EC2_USER       = 'ubuntu'
-        EC2_HOST       = 'ec2-52-66-213-12.ap-south-1.compute.amazonaws.com'
+        EC2_HOST       = 'ec2-13-232-79-143.ap-south-1.compute.amazonaws.com'
         APP_PORT       = '8081'
     }
 
