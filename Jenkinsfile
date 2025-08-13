@@ -49,6 +49,9 @@ pipeline {
                             aws ecr get-login-password --region ${AWS_REGION} \
                             | sudo docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com &&
                             sudo docker pull ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:latest &&
+                            # Stop any container using port 8080
+                            sudo docker ps -q --filter "publish=${APP_PORT}" | xargs -r sudo docker stop &&
+                            sudo docker ps -aq --filter "publish=${APP_PORT}" | xargs -r sudo docker rm &&
                             sudo docker stop myapp || true &&
                             sudo docker rm myapp || true &&
                             sudo docker run -d --name myapp -p ${APP_PORT}:3000 ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:latest
@@ -61,7 +64,7 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    sleep 5 // small delay to allow container to start
+                    sleep 5 // give container time to start
                     def status = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://${EC2_HOST}:${APP_PORT}", returnStdout: true).trim()
                     if (status != '200') {
                         error "Health check failed. HTTP Status: ${status}"
