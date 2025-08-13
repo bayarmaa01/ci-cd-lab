@@ -26,12 +26,12 @@ pipeline {
         stage('Login to ECR') {
             steps {
                 script {
-                    sh """
+                    sh '''
                         aws configure set aws_access_key_id ${AWS_CREDENTIALS_USR}
                         aws configure set aws_secret_access_key ${AWS_CREDENTIALS_PSW}
                         aws configure set default.region ${AWS_REGION}
                         aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com
-                    """
+                    '''
                 }
             }
         }
@@ -41,10 +41,10 @@ pipeline {
                 script {
                     ACCOUNT_ID = sh(script: "aws sts get-caller-identity --query Account --output text", returnStdout: true).trim()
                     IMAGE_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}"
-                    sh """
+                    sh '''
                         docker tag ${ECR_REPO}:${IMAGE_TAG} ${IMAGE_URI}
                         docker push ${IMAGE_URI}
-                    """
+                    '''
                 }
             }
         }
