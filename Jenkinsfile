@@ -8,7 +8,7 @@ pipeline {
         PROD_TAG       = "prod-${BUILD_NUMBER}"
         EC2_USER       = 'ubuntu'
         EC2_HOST       = 'ec2-52-66-213-12.ap-south-1.compute.amazonaws.com'
-        APP_PORT       = '8080'
+        APP_PORT       = '8081'
     }
 
     stages {
