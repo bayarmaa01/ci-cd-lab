@@ -1,41 +1,59 @@
 pipeline {
     agent any
+
     environment {
-        AWS_CREDS = credentials('aws-creds')
-        AWS_REGION = 'ap-south-1'
-        REPO_NAME = 'ci-cd-lab'
-        PROD_TAG = 'prod-${BUILD_NUMBER}'
-        EC2_USER = 'ubuntu'
-        EC2_HOST = 'EC2_PUBLIC_IP'
-        PEM_FILE = '/path/to/key.pem'
+        AWS_REGION     = 'ap-south-1'
+        AWS_ACCOUNT_ID = '010990749281'
+        IMAGE_NAME     = 'ci-cd-lab'
+        PROD_TAG       = 'prod-${BUILD_NUMBER}'
+        EC2_USER       = 'ubuntu'
+        EC2_HOST       = 'ec2-xx-xxx-xxx-xx.ap-south-1.compute.amazonaws.com' // change to your EC2 public DNS
+        APP_PORT       = '8080'
     }
+
     stages {
-        stage('Login to ECR') {
+        stage('Checkout') {
             steps {
-                sh '''
-                aws configure set aws_access_key_id ${AWS_CREDS_USR}
-                aws configure set aws_secret_access_key ${AWS_CREDS_PSW}
-                aws ecr get-login-password --region ${AWS_REGION} | \
-                docker login --username AWS --password-stdin \
-                $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com
-                '''
+                checkout scm
             }
         }
-        stage('Deploy to EC2') {
+
+        stage('Login to ECR') {
             steps {
-                script {
-                    ACCOUNT_ID = sh(script: "aws sts get-caller-identity --query Account --output text", returnStdout: true).trim()
-                    IMAGE_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO_NAME}:${PROD_TAG}"
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${PEM_FILE} ${EC2_USER}@${EC2_HOST} \
-                        "docker pull ${IMAGE_URI} && docker run -d -p 80:80 ${IMAGE_URI}"
-                    '''
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    sh """
+                        aws ecr get-login-password --region $AWS_REGION \
+                        | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    """
                 }
             }
         }
+
+        stage('Deploy to EC2') {
+            steps {
+                sshagent(['ec2-key']) { // ec2-key must be configured in Jenkins Credentials
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                        docker pull ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${PROD_TAG} &&
+                        docker stop ${IMAGE_NAME} || true &&
+                        docker rm ${IMAGE_NAME} || true &&
+                        docker run -d --name ${IMAGE_NAME} -p ${APP_PORT}:${APP_PORT} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${PROD_TAG}
+                        '
+                    """
+                }
+            }
+        }
+
         stage('Health Check') {
             steps {
-                sh "curl -f http://${EC2_HOST} || exit 1"
+                script {
+                    def status = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://${EC2_HOST}:${APP_PORT}", returnStdout: true).trim()
+                    if (status != '200') {
+                        error "Health check failed. HTTP Status: ${status}"
+                    } else {
+                        echo "Health check passed. HTTP Status: ${status}"
+                    }
+                }
             }
         }
     }
