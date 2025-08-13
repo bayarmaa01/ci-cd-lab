@@ -31,13 +31,13 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(['ec2-key']) { // ec2-key must be configured in Jenkins Credentials
+                sshagent(['ec2-key']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                        docker pull ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${PROD_TAG} &&
-                        docker stop ${IMAGE_NAME} || true &&
-                        docker rm ${IMAGE_NAME} || true &&
-                        docker run -d --name ${IMAGE_NAME} -p ${APP_PORT}:${APP_PORT} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}:${PROD_TAG}
+                        ssh -o StrictHostKeyChecking=no ubuntu@52.66.213.12 '
+                            docker pull 010990749281.dkr.ecr.ap-south-1.amazonaws.com/your-repo:latest &&
+                            docker stop myapp || true &&
+                            docker rm myapp || true &&
+                            docker run -d --name myapp -p 80:3000 010990749281.dkr.ecr.ap-south-1.amazonaws.com/your-repo:latest
                         '
                     """
                 }
